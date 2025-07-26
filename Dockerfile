@@ -17,27 +17,19 @@ RUN curl -fsSL https://github.com/coder/code-server/releases/download/v4.93.1/co
 # Проверка, что Rust и Cargo доступны
 RUN cargo --version && rustc --version
 
-# Копирование исходного кода проекта (если есть)
-COPY . .
-
-# Сборка проекта (если есть проект для компиляции)
-RUN cargo build --release || echo "No Rust project to build, skipping"
-
 # Финальный образ
 FROM rust:slim-bookworm AS runner
 
 WORKDIR /app
 
-# Установка runtime-зависимостей
+# Установка runtime-зависимостей и инструментов для компиляции
 RUN apt-get update && apt-get install -y \
     curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Копирование code-server из этапа builder
 COPY --from=builder /app/code-server /app/code-server
-
-# Копирование скомпилированного бинарника (если есть)
-COPY --from=builder /app/target/release/example-rust /app/example-rust
 
 # Установка PATH для code-server
 ENV PATH="/app/code-server/bin:$PATH"
