@@ -1,3 +1,4 @@
+
 # Этап сборки
 FROM rust:bookworm AS builder
 
@@ -14,28 +15,32 @@ RUN curl -fsSL https://github.com/coder/code-server/releases/download/v4.93.1/co
     | tar -xz -C /app && \
     mv /app/code-server-4.93.1-linux-amd64 /app/code-server
 
-# Проверка, что Rust и Cargo доступны
+# Проверка Rust и Cargo
 RUN cargo --version && rustc --version
 
 # Финальный образ
-FROM rust:slim-bookworm AS runner
+FROM debian:bookworm-slim AS runner
 
 WORKDIR /app
 
-# Установка runtime-зависимостей и инструментов для компиляции
+# Установка runtime-зависимостей и Rust
 RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Копирование code-server из этапа builder
+# Установка PATH для Rust и code-server
+ENV PATH="/usr/local/cargo/bin:/app/code-server/bin:$PATH"
+
+# Копирование code-server
 COPY --from=builder /app/code-server /app/code-server
 
-# Установка PATH для code-server
-ENV PATH="/app/code-server/bin:$PATH"
+# Создание директории для проектов
+RUN mkdir -p /app/projects
 
-# Открытие порта для code-server
+# Открытие порта
 EXPOSE 8080
 
 # Запуск code-server
-CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "none", "/app"]
+CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "none", "/app/projects"]
