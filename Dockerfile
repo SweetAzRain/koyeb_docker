@@ -1,6 +1,9 @@
-# Этап сборки: установка Rust и code-server
-FROM rust:latest AS builder
+# Этап сборки
+FROM rust:bookworm AS builder
+
 WORKDIR /app
+
+# Установка дополнительных зависимостей
 RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
@@ -11,23 +14,36 @@ RUN curl -fsSL https://github.com/coder/code-server/releases/download/v4.93.1/co
     | tar -xz -C /app && \
     mv /app/code-server-4.93.1-linux-amd64 /app/code-server
 
-# Проверка путей для отладки
-RUN ls -la /root/.cargo /root/.rustup || echo "Cargo or Rustup not found"
+# Проверка, что Rust и Cargo доступны
+RUN cargo --version && rustc --version
 
-# Финальный этап: минимальная среда
-FROM rust:latest
+# Копирование исходного кода проекта (если нужен пример)
+COPY . .
+
+# Сборка проекта (если есть проект для компиляции)
+RUN cargo build --release
+
+# Финальный образ
+FROM rust:bookworm-slim AS runner
+
 WORKDIR /app
-COPY --from=builder /app/code-server /app/code-server
-COPY --from=builder /root/.cargo /root/.cargo
-COPY --from=builder /root/.rustup /root/.rustup
-ENV PATH="/app/code-server/bin:/root/.cargo/bin:$PATH"
+
+# Установка runtime-зависимостей
 RUN apt-get update && apt-get install -y \
-    libssl-dev \
-    pkg-config \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Открываем порт для code-server
+# Копирование code-server из этапа builder
+COPY --from=builder /app/code-server /app/code-server
+
+# Копирование скомпилированного бинарника (если есть)
+COPY --from=builder /app/target/release/example-rust /app/example-rust
+
+# Установка PATH для code-server
+ENV PATH="/app/code-server/bin:$PATH"
+
+# Открытие порта для code-server
 EXPOSE 8080
 
-# Команда для запуска code-server
-CMD ["/app/code-server/bin/code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "none", "/app"]
+# Запуск code-server
+CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "none", "/app"]
