@@ -1,28 +1,33 @@
-# Этап сборки: установка code-server и Rust
-FROM codercom/code-server:latest AS builder
+# Этап сборки: установка Rust и code-server
+FROM rust:latest AS builder
 WORKDIR /app
-RUN sudo apt-get update && sudo apt-get install -y \
+RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
-    && sudo rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Установка Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:$PATH"
+# Установка code-server
+RUN curl -fsSL https://github.com/coder/code-server/releases/download/v4.93.1/code-server-4.93.1-linux-amd64.tar.gz \
+    | tar -xz -C /app && \
+    mv /app/code-server-4.93.1-linux-amd64 /app/code-server
 
-# Финальный этап: минимальная среда для выполнения
-FROM codercom/code-server:latest
+# Проверка путей для отладки
+RUN ls -la /root/.cargo /root/.rustup || echo "Cargo or Rustup not found"
+
+# Финальный этап: минимальная среда
+FROM rust:latest
 WORKDIR /app
+COPY --from=builder /app/code-server /app/code-server
 COPY --from=builder /root/.cargo /root/.cargo
 COPY --from=builder /root/.rustup /root/.rustup
-ENV PATH="/root/.cargo/bin:$PATH"
-RUN sudo apt-get update && sudo apt-get install -y \
+ENV PATH="/app/code-server/bin:/root/.cargo/bin:$PATH"
+RUN apt-get update && apt-get install -y \
     libssl-dev \
     pkg-config \
-    && sudo rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Открываем порт для code-server
 EXPOSE 8080
 
 # Команда для запуска code-server
-CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "none", "/app"]
+CMD ["/app/code-server/bin/code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "none", "/app"]
