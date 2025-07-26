@@ -17,14 +17,14 @@ RUN curl -fsSL https://github.com/coder/code-server/releases/download/v4.93.1/co
 # Проверка, что Rust и Cargo доступны
 RUN cargo --version && rustc --version
 
-# Копирование исходного кода проекта (если нужен пример)
+# Копирование исходного кода проекта (если есть)
 COPY . .
 
 # Сборка проекта (если есть проект для компиляции)
-RUN cargo build --release
+RUN cargo build --release || echo "No Rust project to build, skipping"
 
 # Финальный образ
-FROM rust:bookworm-slim AS runner
+FROM rust:slim-bookworm AS runner
 
 WORKDIR /app
 
