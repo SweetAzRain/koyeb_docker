@@ -45,12 +45,12 @@ RUN mkdir -p /root/.ssh && \
     ssh-keyscan github.com >> /root/.ssh/known_hosts && \
     chmod 600 /root/.ssh/known_hosts
 
+# Копирование скрипта для синхронизации
+COPY ./sync-projects.sh /app/sync-projects.sh
+RUN chmod +x /app/sync-projects.sh
+
 # Открытие порта
 EXPOSE 8080
-
-# Копирование скрипта для синхронизации
-COPY sync-projects.sh /app/sync-projects.sh
-RUN chmod +x /app/sync-projects.sh
 
 # Запуск синхронизации и code-server
 CMD ["/app/sync-projects.sh"]
