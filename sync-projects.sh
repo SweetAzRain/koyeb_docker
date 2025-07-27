@@ -1,25 +1,28 @@
 #!/bin/bash
-# sync-projects.sh
+# sync-projects.sh (HTTPS version)
 
-# Установка SSH-ключа
-if [ -n "$SSH_PRIVATE_KEY" ]; then
-    mkdir -p /root/.ssh
-    echo "$SSH_PRIVATE_KEY" > /root/.ssh/id_ed25519
-    chmod 600 /root/.ssh/id_ed25519
-    ssh-keyscan github.com >> /root/.ssh/known_hosts
-    chmod 600 /root/.ssh/known_hosts
-    echo "SSH key configured"
-    ssh -T git@github.com || echo "SSH authentication failed"
+# Проверка токена
+if [ -n "$GITHUB_TOKEN" ]; then
+    echo "Using GitHub token"
 else
-    echo "SSH_PRIVATE_KEY not set"
+    echo "GITHUB_TOKEN not set"
+    exit 1
 fi
 
 # Синхронизация проектов
 if [ -d "/app/projects/.git" ]; then
     cd /app/projects
-    git pull origin main || echo "Failed to pull rust-projects"
+    git pull origin main || {
+        echo "Failed to pull rust-projects"
+        exit 1
+    }
 else
-    git clone git@github.com:SweetAzRain/rust-projects.git /app/projects || echo "Failed to clone rust-projects"
+    rm -rf /app/projects
+    mkdir -p /app/projects
+    git clone https://$GITHUB_TOKEN@github.com/SweetAzRain/rust-projects.git /app/projects || {
+        echo "Failed to clone rust-projects"
+        exit 1
+    }
 fi
 
 # Копирование артефактов
@@ -30,18 +33,33 @@ fi
 # Синхронизация настроек code-server
 if [ -d "/root/.local/share/code-server/.git" ]; then
     cd /root/.local/share/code-server
-    git pull origin main || echo "Failed to pull code-server-config"
+    git pull origin main || {
+        echo "Failed to pull code-server-config"
+        exit 1
+    }
 else
+    rm -rf /root/.local/share/code-server
     mkdir -p /root/.local/share/code-server
-    git clone git@github.com:SweetAzRain/code-server-config.git /root/.local/share/code-server || echo "Failed to clone code-server-config"
+    git clone https://$GITHUB_TOKEN@github.com/SweetAzRain/code-server-config.git /root/.local/share/code-server || {
+        echo "Failed to clone code-server-config"
+        exit 1
+    }
 fi
 
 # Установка владельца
 if [ -d "/root/.local/share/code-server" ]; then
     chown -R root:root /root/.local/share/code-server
-    echo "Chown completed"
+    echo "Chown completed for code-server"
 else
     echo "code-server directory not found"
+    exit 1
+fi
+if [ -d "/app/projects" ]; then
+    chown -R root:root /app/projects
+    echo "Chown completed for projects"
+else
+    echo "projects directory not found"
+    exit 1
 fi
 
 # Запуск code-server
