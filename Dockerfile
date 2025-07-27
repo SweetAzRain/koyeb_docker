@@ -1,4 +1,3 @@
-
 # Этап сборки
 FROM rust:bookworm AS builder
 
@@ -23,10 +22,12 @@ FROM debian:bookworm-slim AS runner
 
 WORKDIR /app
 
-# Установка runtime-зависимостей и Rust
+# Установка runtime-зависимостей, Rust и Git
 RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
+    git \
+    openssh-client \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && rm -rf /var/lib/apt/lists/*
 
@@ -39,8 +40,17 @@ COPY --from=builder /app/code-server /app/code-server
 # Создание директории для проектов
 RUN mkdir -p /app/projects
 
+# Настройка SSH для GitHub
+RUN mkdir -p /root/.ssh && \
+    ssh-keyscan github.com >> /root/.ssh/known_hosts && \
+    chmod 600 /root/.ssh/known_hosts
+
 # Открытие порта
 EXPOSE 8080
 
-# Запуск code-server
-CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "none", "/app/projects"]
+# Копирование скрипта для синхронизации
+COPY sync-projects.sh /app/sync-projects.sh
+RUN chmod +x /app/sync-projects.sh
+
+# Запуск синхронизации и code-server
+CMD ["/app/sync-projects.sh"]
