@@ -9,6 +9,7 @@ if [ -n "$SSH_PRIVATE_KEY" ]; then
     ssh-keyscan github.com >> /root/.ssh/known_hosts
     chmod 600 /root/.ssh/known_hosts
     echo "SSH key configured"
+    ssh -T git@github.com || echo "SSH authentication failed"
 else
     echo "SSH_PRIVATE_KEY not set"
 fi
@@ -31,7 +32,7 @@ if [ -d "/root/.local/share/code-server/.git" ]; then
     cd /root/.local/share/code-server
     git pull origin main || echo "Failed to pull code-server-config"
 else
-    mkdir -p /root/.local/share
+    mkdir -p /root/.local/share/code-server
     git clone git@github.com:SweetAzRain/code-server-config.git /root/.local/share/code-server || echo "Failed to clone code-server-config"
 fi
 
